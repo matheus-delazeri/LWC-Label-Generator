@@ -1,20 +1,19 @@
 import os
 import re
-from bs4 import BeautifulSoup, formatter
-import inflection
-from pathlib import Path
+from bs4 import BeautifulSoup
 from colorama import init, Fore, Style
 import sys
 
 init()
 
 class LWCLabelGenerator:
-    def __init__(self, component_name):
+    def __init__(self, component_name, naming_style):
         self.component_name = component_name
+        self.naming_style = naming_style
         self.component_path = f"force-app/main/default/lwc/{component_name}"
         self.label_path = f"force-app/main/default/labels/{component_name}"
         self.html_path = os.path.join(self.component_path, f"{component_name}.html")
-        self.labels = {}  # Store label_name: raw_text pairs
+        self.labels = {} 
         self.metrics = {
             'total_labels': 0,
             'button_labels': 0,
@@ -33,7 +32,7 @@ class LWCLabelGenerator:
             "info": Fore.BLUE,
             "warning": Fore.YELLOW
         }
-        print(f"{colors[status]}→ {message}{Style.RESET_ALL}")
+        print(f"{colors[status]}\u2192 {message}{Style.RESET_ALL}")
 
     def validate_files(self):
         if not os.path.exists(self.component_path):
@@ -45,7 +44,8 @@ class LWCLabelGenerator:
             return False
 
         if os.path.exists(os.path.join(self.label_path, 'labels.js')):
-            proceed = input(f"{Fore.YELLOW}A 'labels.js' file already exists for this component. Proceeding will make the content of this file be lost. Are you sure (y/n)?{Style.RESET_ALL}")
+            print(f"\n{Fore.CYAN}=== File already found ==={Style.RESET_ALL}\n")
+            proceed = input(f"{Fore.CYAN}[?] A 'labels.js' file already exists for this component. Proceeding will make the content of this file be lost. Are you sure (y/n)? {Style.RESET_ALL}")
             return str.upper(proceed) == 'Y'
         
         return True
@@ -56,15 +56,19 @@ class LWCLabelGenerator:
         if not words:
             return ''
         
-        result = words[0].lower()
-        for word in words[1:]:
-            result += word.title()
-            
-        # Add prefix if provided (for buttons)
-        if prefix:
-            result = f"{prefix}{result.title()}"
-            
-        return result
+        if prefix: words.insert(0, prefix)
+        if self.naming_style == 'snake_case':
+            label_name = '_'.join(words)
+        elif self.naming_style == 'camelCase':
+            label_name = words[0].lower() + ''.join(word.title() for word in words[1:])
+        elif self.naming_style == 'PascalCase':
+            label_name = ''.join(word.title() for word in words)
+        elif self.naming_style == 'UPPER_CASE':
+            label_name = str.upper('_'.join(words))
+        else:
+            raise ValueError("Unsupported naming style")
+
+        return label_name
 
     def should_process_text(self, element):
         if re.match(r'{\s*.*\s*}', element.strip()):
@@ -103,7 +107,6 @@ class LWCLabelGenerator:
 
                 element.replace_with(f"{{label.{label_name}}}")
 
-
         self.metrics['total_labels'] = len(self.labels)
         labeled_html_path = os.path.join(self.label_path, f"{self.component_name}.html")
         with open(labeled_html_path, 'w', encoding='utf-8') as file:
@@ -115,11 +118,13 @@ class LWCLabelGenerator:
 
     def generate_js_file(self):
         js_content = []
-        for label_name in self.labels:
+        labels = list(self.labels.keys())
+        labels.sort()
+        for label_name in labels:
             js_content.append(f"import {label_name} from '@salesforce/label/c.{label_name}';")
         
         js_content.append("\nexport const label = {")
-        js_content.extend(f"    {name}," for name in self.labels)
+        js_content.extend(f"    {name}," for name in labels)
         js_content.append("};")
 
         js_path = os.path.join(self.label_path, "labels.js")
@@ -151,9 +156,26 @@ class LWCLabelGenerator:
 def main():
     print(f"{Fore.CYAN}=== LWC Label Generator ==={Style.RESET_ALL}\n")
     
-    component_name = input(f"{Fore.YELLOW}Enter LWC component name: {Style.RESET_ALL}")
-    
-    generator = LWCLabelGenerator(component_name)
+    component_name = input(f"{Fore.CYAN}[?] Enter LWC component name: {Style.RESET_ALL}")
+
+    naming_style = ''
+    naming_styles_map = {
+        '1': 'camelCase',
+        '2': 'snake_case',
+        '3': 'PascalCase',
+        '4': 'UPPER_CASE'
+    }
+ 
+    while naming_style not in naming_styles_map.keys():
+        print(f"\n{Fore.CYAN}=== Choose label naming style ==={Style.RESET_ALL}\n")
+        for key, style in naming_styles_map.items():
+            print(f"[{key}] {style}")
+
+        naming_style = input(f"\n{Fore.CYAN}[?] Your choice: {Style.RESET_ALL}").strip()
+
+    naming_style = naming_styles_map[naming_style]
+
+    generator = LWCLabelGenerator(component_name, naming_style)
     
     if not generator.validate_files():
         print(f"\n{Fore.CYAN}=== Generation Exited ==={Style.RESET_ALL}")
@@ -166,16 +188,16 @@ def main():
     xml_path = generator.generate_xml_file()
 
     print(f"\n{Fore.GREEN}=== Generation Complete ==={Style.RESET_ALL}")
-    print(f"\n{Fore.CYAN}Metrics:{Style.RESET_ALL}")
-    print(f"• Total labels created: {generator.metrics['total_labels']}")
-    print(f"• Button labels: {generator.metrics['button_labels']}")
-    print(f"• Text elements: {generator.metrics['text_elements']}")
+    print(f"\n{Fore.CYAN}[Metrics]\n{Style.RESET_ALL}")
+    print(f"\u2022 Total labels created: {generator.metrics['total_labels']}")
+    print(f"\u2022 Button labels: {generator.metrics['button_labels']}")
+    print(f"\u2022 Text elements: {generator.metrics['text_elements']}")
 
-    print(f"\n{Fore.CYAN}Next Steps:{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}[Next Steps]{Style.RESET_ALL}")
     
     print(f"\n1. {Fore.YELLOW}JavaScript Labels File:{Style.RESET_ALL}")
-    print(f"   → Location: {js_path}")
-    print(f"   → Import in your main JS file using:")
+    print(f"   \u2192 Location: {js_path}")
+    print(f"   \u2192 Move to your component folder and import it in your main JS file using:")
     print(f"""\n     import {{ label }} from './labels';
      export default class YourLWCComponent extends LightningElement {{
          label = label;
@@ -194,7 +216,7 @@ def main():
         <members>*</members>
         <name>CustomLabels</name>
     </types>""")
-    print(f"   → More info: https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/manifest_samples.htm")
+    print(f"   → More info: https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/manifest_samples.htm\n")
 
 if __name__ == "__main__":
     main()

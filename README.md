@@ -5,6 +5,7 @@ The **LWC Label Generator** is a Python script designed to automate the generati
 - A labeled HTML file
 - A JavaScript file for importing labels
 - An XML file for integrating custom labels with Salesforce metadata
+- Choosing label case from: camelCase, snake_case, PascalCase and UPPER_CASE
 
 ## Features
 
@@ -61,7 +62,7 @@ The script generates the following files:
 1. JavaScript Labels File
 
 - **Location:** `force-app/main/default/labels/<component_name>/labels.js`
-- Import this file in your LWC JavaScript file
+- Move the file to your component's folder and import it in your LWC JavaScript file
 
 2. Labeled HTML File
 - **Location:** `force-app/main/default/labels/<component_name>/<component_name>.html`
