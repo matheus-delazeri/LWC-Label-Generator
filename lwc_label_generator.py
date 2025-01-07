@@ -3,6 +3,7 @@ import re
 from bs4 import BeautifulSoup
 from colorama import init, Fore, Style
 import sys
+from unidecode import unidecode
 
 init()
 
@@ -20,7 +21,7 @@ class LWCLabelGenerator:
             'text_elements': 0
         }
 
-        self.text_elements = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'label', 'th', 'td']
+        self.text_elements = ['p', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'label', 'th', 'td']
 
         if not os.path.exists(self.label_path):
             os.makedirs(self.label_path)
@@ -51,7 +52,8 @@ class LWCLabelGenerator:
         return True
 
     def create_label_name(self, text, prefix=''):
-        clean_text = re.sub(r'[^a-zA-Z0-9\s]', '', text.strip())
+        normalized_text = unidecode(text.strip())
+        clean_text = re.sub(r'[^a-zA-Z0-9\s]', '', normalized_text)
         words = clean_text.lower().split()
         if not words:
             return ''
@@ -110,7 +112,7 @@ class LWCLabelGenerator:
         self.metrics['total_labels'] = len(self.labels)
         labeled_html_path = os.path.join(self.label_path, f"{self.component_name}.html")
         with open(labeled_html_path, 'w', encoding='utf-8') as file:
-            content = soup.prettify(formatter='html5')
+            content = soup.prettify(formatter=None)
             content = re.sub(r'="\{(.*?)\}"', r'={\1}', content)
             file.write(content)
 

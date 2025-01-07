@@ -22,13 +22,13 @@ The **LWC Label Generator** is a Python script designed to automate the generati
 - **Python 3.6+** installed on your system.
 - The following Python libraries:
   - `beautifulsoup4`
-  - `inflection`
+  - `unidecode`
   - `colorama`
 
 You can install the dependencies with the following command:
 
 ```bash
-pip install beautifulsoup4 inflection colorama
+pip install beautifulsoup4 unidecode colorama
 ```
 
 ## Installation
